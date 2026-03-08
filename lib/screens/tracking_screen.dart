@@ -12,6 +12,128 @@ import '../services/storage_service.dart';
 import '../utils/app_theme.dart';
 import '../widgets/stat_card.dart';
 
+// ─── Map Style Model ───────────────────────────────────────────────────────────
+class MapStyle {
+  final String name;
+  final String url;
+  final List<String>? subdomains;
+  final String emoji;
+  final bool isDark;
+
+  const MapStyle({
+    required this.name,
+    required this.url,
+    this.subdomains,
+    required this.emoji,
+    this.isDark = false,
+  });
+}
+
+const List<MapStyle> kMapStyles = [
+  // ── OpenStreetMap ──
+  MapStyle(
+    name: 'OSM Standard',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    emoji: '🗺️',
+  ),
+  MapStyle(
+    name: 'OSM Germany',
+    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+    emoji: '🇩🇪',
+  ),
+  MapStyle(
+    name: 'OSM France',
+    url: 'https://tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+    emoji: '🇫🇷',
+  ),
+  MapStyle(
+    name: 'OSM Hot',
+    url: 'https://tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    emoji: '🔥',
+  ),
+  // ── CartoDB ──
+  MapStyle(
+    name: 'Dark (CartoDB)',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
+    emoji: '🌑',
+    isDark: true,
+  ),
+  MapStyle(
+    name: 'Dark No Labels',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
+    emoji: '🌒',
+    isDark: true,
+  ),
+  MapStyle(
+    name: 'Light (CartoDB)',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
+    emoji: '☀️',
+  ),
+  MapStyle(
+    name: 'Light No Labels',
+    url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
+    emoji: '🌤️',
+  ),
+  // ── Stadia ──
+  MapStyle(
+    name: 'Stadia Dark',
+    url: 'https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}.png',
+    emoji: '🎨',
+    isDark: true,
+  ),
+  // ── Topo ──
+  MapStyle(
+    name: 'Topo Map',
+    url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
+    emoji: '⛰️',
+  ),
+  MapStyle(
+    name: 'Hillshading',
+    url: 'https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png',
+    emoji: '🏔️',
+  ),
+  MapStyle(
+    name: 'Black & White',
+    url: 'https://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png',
+    emoji: '⬛',
+  ),
+  // ── Cycling ──
+  MapStyle(
+    name: 'CyclOSM',
+    url: 'https://tile.cyclosm.org/{z}/{x}/{y}.png',
+    emoji: '🚴',
+  ),
+  // ── Wikimedia ──
+  MapStyle(
+    name: 'Wikimedia',
+    url: 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png',
+    emoji: '📖',
+  ),
+  // ── Google Satellite ──
+  MapStyle(
+    name: 'Google Satellite',
+    url: 'https://mt0.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    emoji: '🛰️',
+    isDark: true,
+  ),
+  MapStyle(
+    name: 'Google Hybrid',
+    url: 'https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    emoji: '🌍',
+    isDark: true,
+  ),
+  MapStyle(
+    name: 'Google Terrain',
+    url: 'https://mt0.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+    emoji: '🏞️',
+  ),
+];
+
+// ─── Tracking Screen ───────────────────────────────────────────────────────────
 class TrackingScreen extends StatefulWidget {
   final StorageService storageService;
   final VoidCallback onActivitySaved;
@@ -42,6 +164,9 @@ class _TrackingScreenState extends State<TrackingScreen>
   bool _permissionsGranted = false;
   bool _checkingPermissions = true;
 
+  // Map style
+  MapStyle _selectedStyle = kMapStyles[4]; // Default: Dark CartoDB
+
   StreamSubscription? _updateSub;
   StreamSubscription? _stateSub;
 
@@ -58,7 +183,6 @@ class _TrackingScreenState extends State<TrackingScreen>
     _pulseAnim = Tween<double>(begin: 0.8, end: 1.2).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-
     _initGps();
   }
 
@@ -92,7 +216,6 @@ class _TrackingScreenState extends State<TrackingScreen>
         _steps = update.steps;
         _route = List.from(_gps.route);
       });
-
       if (_followUser && _trackingState == TrackingState.active) {
         _mapController.move(update.position, _mapController.camera.zoom);
       }
@@ -126,9 +249,130 @@ class _TrackingScreenState extends State<TrackingScreen>
     _showSaveDialog();
   }
 
+  // ── Map Style Picker ──────────────────────────────────────────────────────────
+  void _showMapStylePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardBg,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (_, scrollCtrl) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.textSecondary.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Icon(Icons.layers_rounded, color: AppTheme.orange, size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Map Style',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.builder(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: kMapStyles.length,
+                itemBuilder: (_, i) {
+                  final style = kMapStyles[i];
+                  final isSelected = style.name == _selectedStyle.name;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedStyle = style);
+                      Navigator.pop(context);
+                      HapticFeedback.selectionClick();
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.orange.withOpacity(0.15)
+                            : AppTheme.surfaceBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: isSelected
+                            ? Border.all(
+                            color: AppTheme.orange.withOpacity(0.6),
+                            width: 1.5)
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(style.emoji,
+                              style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  style.name,
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? AppTheme.orange
+                                        : AppTheme.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  style.isDark ? 'Dark theme' : 'Light theme',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_circle_rounded,
+                                color: AppTheme.orange, size: 22),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showSaveDialog() {
     final nameCtrl = TextEditingController(
-      text: 'Morning Walk ${DateTime.now().hour < 12 ? '🌅' : DateTime.now().hour < 17 ? '☀️' : '🌙'}',
+      text:
+      'Morning Walk ${DateTime.now().hour < 12 ? '🌅' : DateTime.now().hour < 17 ? '☀️' : '🌙'}',
     );
 
     showDialog(
@@ -136,18 +380,18 @@ class _TrackingScreenState extends State<TrackingScreen>
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Save Activity',
           style: GoogleFonts.spaceGrotesk(
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
-          ),
+              fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _summaryRow('Distance', '${(_distance / 1000).toStringAsFixed(2)} km'),
+            _summaryRow(
+                'Distance', '${(_distance / 1000).toStringAsFixed(2)} km'),
             _summaryRow('Duration', FormatUtils.duration(_seconds)),
             _summaryRow('Pace', FormatUtils.pace(_distance, _seconds)),
             _summaryRow('Steps', '$_steps'),
@@ -157,7 +401,8 @@ class _TrackingScreenState extends State<TrackingScreen>
               style: GoogleFonts.spaceGrotesk(color: AppTheme.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Activity Name',
-                labelStyle: GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary),
+                labelStyle:
+                GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary),
                 filled: true,
                 fillColor: AppTheme.surfaceBg,
                 border: OutlineInputBorder(
@@ -180,10 +425,9 @@ class _TrackingScreenState extends State<TrackingScreen>
                 _steps = 0;
               });
             },
-            child: Text(
-              'Discard',
-              style: GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary),
-            ),
+            child: Text('Discard',
+                style:
+                GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -192,7 +436,8 @@ class _TrackingScreenState extends State<TrackingScreen>
                 name: nameCtrl.text.trim().isEmpty
                     ? 'Walking Activity'
                     : nameCtrl.text.trim(),
-                startTime: DateTime.now().subtract(Duration(seconds: _seconds)),
+                startTime:
+                DateTime.now().subtract(Duration(seconds: _seconds)),
                 endTime: DateTime.now(),
                 route: _gps.route,
                 distanceMeters: _distance,
@@ -222,14 +467,13 @@ class _TrackingScreenState extends State<TrackingScreen>
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary)),
-        Text(
-          value,
-          style: GoogleFonts.spaceGrotesk(
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
-          ),
-        ),
+        Text(label,
+            style:
+            GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary)),
+        Text(value,
+            style: GoogleFonts.spaceGrotesk(
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary)),
       ],
     ),
   );
@@ -247,22 +491,21 @@ class _TrackingScreenState extends State<TrackingScreen>
   Widget build(BuildContext context) {
     if (_checkingPermissions) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppTheme.orange)),
+        body:
+        Center(child: CircularProgressIndicator(color: AppTheme.orange)),
       );
     }
-
-    if (!_permissionsGranted) {
-      return _buildPermissionDenied();
-    }
+    if (!_permissionsGranted) return _buildPermissionDenied();
 
     return Scaffold(
       body: Stack(
         children: [
-          // Map
+          // ── Map ────────────────────────────────────────────────────────────
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _currentPosition ?? const LatLng(14.5995, 120.9842),
+              initialCenter:
+              _currentPosition ?? const LatLng(14.5995, 120.9842),
               initialZoom: 16.5,
               onPositionChanged: (_, hasGesture) {
                 if (hasGesture) setState(() => _followUser = false);
@@ -270,12 +513,11 @@ class _TrackingScreenState extends State<TrackingScreen>
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                urlTemplate: _selectedStyle.url,
+                subdomains:
+                _selectedStyle.subdomains ?? const <String>[],
                 userAgentPackageName: 'com.stravaclone.app',
               ),
-              // Route polyline
               if (_route.length > 1)
                 PolylineLayer(
                   polylines: [
@@ -286,7 +528,6 @@ class _TrackingScreenState extends State<TrackingScreen>
                     ),
                   ],
                 ),
-              // Start marker
               if (_route.isNotEmpty)
                 MarkerLayer(
                   markers: [
@@ -298,13 +539,13 @@ class _TrackingScreenState extends State<TrackingScreen>
                         decoration: BoxDecoration(
                           color: AppTheme.green,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2.5),
+                          border:
+                          Border.all(color: Colors.white, width: 2.5),
                         ),
                       ),
                     ),
                   ],
                 ),
-              // Current position
               if (_currentPosition != null)
                 MarkerLayer(
                   markers: [
@@ -324,7 +565,8 @@ class _TrackingScreenState extends State<TrackingScreen>
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.orange.withOpacity(0.2),
+                                    color:
+                                    AppTheme.orange.withOpacity(0.2),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -335,10 +577,12 @@ class _TrackingScreenState extends State<TrackingScreen>
                               decoration: BoxDecoration(
                                 color: AppTheme.orange,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
+                                border: Border.all(
+                                    color: Colors.white, width: 3),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.orange.withOpacity(0.5),
+                                    color:
+                                    AppTheme.orange.withOpacity(0.5),
                                     blurRadius: 8,
                                     spreadRadius: 2,
                                   ),
@@ -354,7 +598,7 @@ class _TrackingScreenState extends State<TrackingScreen>
             ],
           ),
 
-          // Top gradient
+          // ── Top gradient ───────────────────────────────────────────────────
           Positioned(
             top: 0,
             left: 0,
@@ -374,10 +618,11 @@ class _TrackingScreenState extends State<TrackingScreen>
             ),
           ),
 
-          // App bar area
+          // ── Top bar ────────────────────────────────────────────────────────
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
                   Text(
@@ -389,37 +634,68 @@ class _TrackingScreenState extends State<TrackingScreen>
                     ),
                   ),
                   const Spacer(),
-                  if (!_followUser)
-                    _mapButton(
-                      Icons.my_location,
-                          () {
-                        setState(() => _followUser = true);
-                        if (_currentPosition != null) {
-                          _mapController.move(
-                              _currentPosition!, _mapController.camera.zoom);
-                        }
-                      },
+
+                  // ── Map Style button ──────────────────────────────────────
+                  GestureDetector(
+                    onTap: _showMapStylePicker,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBg.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: AppTheme.orange.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_selectedStyle.emoji,
+                              style: const TextStyle(fontSize: 16)),
+                          const SizedBox(width: 6),
+                          Text(
+                            _selectedStyle.name,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.expand_more_rounded,
+                              color: AppTheme.textSecondary, size: 16),
+                        ],
+                      ),
                     ),
-                  const SizedBox(width: 8),
-                  _mapButton(
-                    Icons.add,
-                        () => _mapController.move(
-                        _mapController.camera.center,
-                        _mapController.camera.zoom + 1),
                   ),
+
                   const SizedBox(width: 8),
-                  _mapButton(
-                    Icons.remove,
-                        () => _mapController.move(
-                        _mapController.camera.center,
-                        _mapController.camera.zoom - 1),
-                  ),
+
+                  // ── Recenter button ───────────────────────────────────────
+                  if (!_followUser)
+                    _mapButton(Icons.my_location, () {
+                      setState(() => _followUser = true);
+                      if (_currentPosition != null) {
+                        _mapController.move(_currentPosition!,
+                            _mapController.camera.zoom);
+                      }
+                    }),
+
+                  if (!_followUser) const SizedBox(width: 8),
+
+                  _mapButton(Icons.add,
+                          () => _mapController.move(_mapController.camera.center,
+                          _mapController.camera.zoom + 1)),
+                  const SizedBox(width: 8),
+                  _mapButton(Icons.remove,
+                          () => _mapController.move(_mapController.camera.center,
+                          _mapController.camera.zoom - 1)),
                 ],
               ),
             ),
           ),
 
-          // Bottom panel
+          // ── Bottom panel ───────────────────────────────────────────────────
           Positioned(
             bottom: 0,
             left: 0,
@@ -452,12 +728,11 @@ class _TrackingScreenState extends State<TrackingScreen>
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.darkBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius:
+        const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 20,
-          ),
+              color: Colors.black.withOpacity(0.4), blurRadius: 20),
         ],
       ),
       child: SafeArea(
@@ -467,7 +742,6 @@ class _TrackingScreenState extends State<TrackingScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
               Container(
                 width: 40,
                 height: 4,
@@ -477,8 +751,6 @@ class _TrackingScreenState extends State<TrackingScreen>
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-
-              // Stats grid
               if (!isIdle) ...[
                 GridView.count(
                   crossAxisCount: 2,
@@ -498,7 +770,9 @@ class _TrackingScreenState extends State<TrackingScreen>
                       label: 'Time',
                       value: FormatUtils.duration(_seconds),
                       icon: Icons.timer_outlined,
-                      valueColor: isActive ? AppTheme.orange : AppTheme.textPrimary,
+                      valueColor: isActive
+                          ? AppTheme.orange
+                          : AppTheme.textPrimary,
                     ),
                     StatCard(
                       label: 'Pace',
@@ -515,14 +789,11 @@ class _TrackingScreenState extends State<TrackingScreen>
                 ),
                 const SizedBox(height: 16),
               ] else ...[
-                // Idle state prompt
                 Column(
                   children: [
-                    Icon(
-                      Icons.directions_walk_rounded,
-                      size: 48,
-                      color: AppTheme.orange.withOpacity(0.8),
-                    ),
+                    Icon(Icons.directions_walk_rounded,
+                        size: 48,
+                        color: AppTheme.orange.withOpacity(0.8)),
                     const SizedBox(height: 8),
                     Text(
                       'Ready to walk?',
@@ -536,51 +807,43 @@ class _TrackingScreenState extends State<TrackingScreen>
                     Text(
                       'Press Start to begin tracking your route',
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
+                          fontSize: 13, color: AppTheme.textSecondary),
                     ),
                     const SizedBox(height: 16),
                   ],
                 ),
               ],
-
-              // Control buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isIdle) ...[
+                  if (isIdle)
                     _bigButton(
                       label: 'Start',
                       icon: Icons.play_arrow_rounded,
                       color: AppTheme.orange,
                       onTap: _startActivity,
                       size: 72,
-                    ),
-                  ] else if (isActive) ...[
+                    )
+                  else if (isActive) ...[
                     _smallButton(
-                      icon: Icons.pause_rounded,
-                      color: AppTheme.blue,
-                      onTap: _pauseActivity,
-                    ),
+                        icon: Icons.pause_rounded,
+                        color: AppTheme.blue,
+                        onTap: _pauseActivity),
                     const SizedBox(width: 20),
                     _smallButton(
-                      icon: Icons.stop_rounded,
-                      color: Colors.red,
-                      onTap: _stopActivity,
-                    ),
+                        icon: Icons.stop_rounded,
+                        color: Colors.red,
+                        onTap: _stopActivity),
                   ] else if (isPaused) ...[
                     _smallButton(
-                      icon: Icons.play_arrow_rounded,
-                      color: AppTheme.green,
-                      onTap: _resumeActivity,
-                    ),
+                        icon: Icons.play_arrow_rounded,
+                        color: AppTheme.green,
+                        onTap: _resumeActivity),
                     const SizedBox(width: 20),
                     _smallButton(
-                      icon: Icons.stop_rounded,
-                      color: Colors.red,
-                      onTap: _stopActivity,
-                    ),
+                        icon: Icons.stop_rounded,
+                        color: Colors.red,
+                        onTap: _stopActivity),
                   ],
                 ],
               ),
@@ -610,23 +873,19 @@ class _TrackingScreenState extends State<TrackingScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
+                      color: color.withOpacity(0.4),
+                      blurRadius: 20,
+                      spreadRadius: 2),
                 ],
               ),
               child: Icon(icon, color: Colors.white, size: size * 0.5),
             ),
             const SizedBox(height: 6),
-            Text(
-              label,
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
-              ),
-            ),
+            Text(label,
+                style: GoogleFonts.spaceGrotesk(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary)),
           ],
         ),
       );
@@ -658,29 +917,23 @@ class _TrackingScreenState extends State<TrackingScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.location_off_rounded,
-                size: 80,
-                color: AppTheme.textSecondary,
-              ),
+              const Icon(Icons.location_off_rounded,
+                  size: 80, color: AppTheme.textSecondary),
               const SizedBox(height: 24),
               Text(
                 'Location Access Required',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.spaceGrotesk(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                ),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary),
               ),
               const SizedBox(height: 12),
               Text(
                 'StrideTrack needs location access to track your walking route. Please enable it in Settings.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.spaceGrotesk(
-                  fontSize: 15,
-                  color: AppTheme.textSecondary,
-                ),
+                    fontSize: 15, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
