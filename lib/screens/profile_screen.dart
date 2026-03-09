@@ -3,41 +3,33 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/activity_model.dart';
 import '../services/storage_service.dart';
 import '../utils/app_theme.dart';
-
 class ProfileScreen extends StatefulWidget {
   final StorageService storageService;
   final int refreshKey;
-
   const ProfileScreen({
     super.key,
     required this.storageService,
     required this.refreshKey,
   });
-
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
-
 class _ProfileScreenState extends State<ProfileScreen> {
   List<ActivityModel> _activities = [];
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   @override
   void didUpdateWidget(covariant ProfileScreen old) {
     super.didUpdateWidget(old);
     if (old.refreshKey != widget.refreshKey) _load();
   }
-
   Future<void> _load() async {
     final list = await widget.storageService.loadActivities();
     if (mounted) setState(() => _activities = list);
   }
-
   @override
   Widget build(BuildContext context) {
     final totalKm = _activities.fold<double>(
@@ -48,7 +40,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ? _activities.fold<double>(0, (s, a) => s + a.paceMinPerKm) /
         _activities.length
         : 0;
-
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -96,10 +87,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-
               _sectionTitle('All-Time Stats'),
               const SizedBox(height: 12),
-
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -138,11 +127,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
               _sectionTitle('Achievements'),
               const SizedBox(height: 12),
-
               _achievement(
                 '🏃 First Steps',
                 'Complete your first walk',
@@ -168,7 +155,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 'Accumulate 10,000 steps',
                 totalSteps >= 10000,
               ),
-
               const SizedBox(height: 80),
             ],
           ),
@@ -176,7 +162,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
   Widget _sectionTitle(String title) => Text(
     title,
     style: GoogleFonts.spaceGrotesk(
@@ -185,7 +170,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       color: AppTheme.textPrimary,
     ),
   );
-
   Widget _statCard(
       String value, String unit, String label, IconData icon, Color color) =>
       Container(
@@ -231,7 +215,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       );
-
   Widget _achievement(String title, String desc, bool unlocked) => Container(
     margin: const EdgeInsets.only(bottom: 10),
     padding: const EdgeInsets.all(14),
@@ -290,7 +273,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     ),
   );
-
   String _formatTime(int seconds) {
     final h = seconds ~/ 3600;
     final m = (seconds % 3600) ~/ 60;

@@ -49,6 +49,10 @@ dependencies:
   # Local Storage
   shared_preferences: ^2.2.2
   path_provider: ^2.1.2
+  path: ^1.9.0
+
+  # Camera & Gallery
+  image_picker: ^1.1.2
 
   # UI & Fonts
   google_fonts: ^6.2.1
