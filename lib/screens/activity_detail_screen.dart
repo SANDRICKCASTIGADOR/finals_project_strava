@@ -71,7 +71,8 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
   }
 
   Future<void> _shareActivity() async {
-    await shareActivity(_activity);
+    final photo = _activity.photoPaths.isNotEmpty ? _activity.photoPaths.first : null;
+    await shareActivity(_activity, photoPath: photo);
   }
 
   @override
@@ -82,7 +83,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
           expandedHeight: 280, pinned: true, backgroundColor: AppTheme.darkBg,
           leading: IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.pop(context)),
           actions: [
-            IconButton(icon: const Icon(Icons.share_rounded, color: AppTheme.orange), onPressed: _shareActivity),
+            IconButton(icon: const Icon(Icons.share_rounded, color: AppTheme.orange), onPressed: _shareActivity, tooltip: 'Share'),
             const SizedBox(width: 8),
           ],
           flexibleSpace: FlexibleSpaceBar(

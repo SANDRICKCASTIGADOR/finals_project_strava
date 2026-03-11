@@ -39,7 +39,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _shareActivity(ActivityModel activity) async {
-    await shareActivity(activity);
+    final photo = activity.photoPaths.isNotEmpty ? activity.photoPaths.first : null;
+    await shareActivity(activity, photoPath: photo);
   }
 
   @override

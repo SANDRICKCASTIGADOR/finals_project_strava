@@ -1,22 +1,14 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// stat_card.dart
-// Reusable metric display card widget used on the tracking screen and
-// activity detail screen. Shows a label, large value, optional unit,
-// and optional leading icon. Supports custom value color for highlighting
-// active states (e.g. orange timer when tracking is running).
-// ─────────────────────────────────────────────────────────────────────────────
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/app_theme.dart';
 
 class StatCard extends StatelessWidget {
-  final String label;       // Top label e.g. "DISTANCE"
-  final String value;       // Main value e.g. "2.45"
-  final String? unit;       // Optional unit e.g. "km"
-  final IconData? icon;     // Optional leading icon next to label
-  final Color? valueColor;  // Override value text color (default: textPrimary)
-  final Color? iconColor;   // Override icon color (default: textSecondary)
+  final String label;
+  final String value;
+  final String? unit;
+  final IconData? icon;
+  final Color? valueColor;
+  final Color? iconColor;
 
   const StatCard({
     super.key,
@@ -31,62 +23,57 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.divider, width: 1), // Subtle border
+        border: Border.all(color: AppTheme.divider, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-
-          // ── Label Row (icon + uppercase label) ──────────────────────────
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 13, color: iconColor ?? AppTheme.textSecondary),
-                const SizedBox(width: 5),
-              ],
-              Text(
+          Row(children: [
+            if (icon != null) ...[
+              Icon(icon, size: 12, color: iconColor ?? AppTheme.textSecondary),
+              const SizedBox(width: 4),
+            ],
+            Flexible(
+              child: Text(
                 label.toUpperCase(),
                 style: GoogleFonts.dmSans(
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textSecondary,
-                  letterSpacing: 1.0,
+                  letterSpacing: 0.8,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          RichText(
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(children: [
+              TextSpan(
+                text: value,
+                style: GoogleFonts.dmSans(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: valueColor ?? AppTheme.textPrimary,
+                  height: 1,
                 ),
               ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          // ── Value + Unit ─────────────────────────────────────────────────
-          RichText(
-            text: TextSpan(
-              children: [
+              if (unit != null)
                 TextSpan(
-                  text: value,
+                  text: ' $unit',
                   style: GoogleFonts.dmSans(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: valueColor ?? AppTheme.textPrimary,
-                    height: 1,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
-                if (unit != null)
-                  TextSpan(
-                    text: ' $unit',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
+            ]),
           ),
         ],
       ),

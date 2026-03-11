@@ -294,18 +294,19 @@ class _TrackingScreenState extends State<TrackingScreen> with TickerProviderStat
                 GestureDetector(
                   onTap: _showMapStylePicker,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     decoration: BoxDecoration(
                       color: AppTheme.cardBg.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.layers_rounded, color: AppTheme.orange, size: 16),
-                      const SizedBox(width: 6),
-                      Text(_selectedStyle.name, style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.expand_more_rounded, color: AppTheme.textSecondary, size: 16),
+                      const Icon(Icons.layers_rounded, color: AppTheme.orange, size: 14),
+                      const SizedBox(width: 5),
+                      Flexible(child: Text(_selectedStyle.name, style: GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                      const SizedBox(width: 3),
+                      const Icon(Icons.expand_more_rounded, color: AppTheme.textSecondary, size: 14),
                     ]),
                   ),
                 ),
