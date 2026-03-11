@@ -3,8 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/activity_model.dart';
 import '../services/storage_service.dart';
 import '../utils/app_theme.dart';
+import '../utils/share_helper.dart';
 import '../widgets/activity_tile.dart';
 import 'activity_detail_screen.dart';
+
 class HistoryScreen extends StatefulWidget {
   final StorageService storageService;
   final int refreshKey;
@@ -12,24 +14,34 @@ class HistoryScreen extends StatefulWidget {
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
+
 class _HistoryScreenState extends State<HistoryScreen> {
   List<ActivityModel> _activities = [];
   bool _loading = true;
+
   @override
   void initState() { super.initState(); _load(); }
+
   @override
   void didUpdateWidget(covariant HistoryScreen old) {
     super.didUpdateWidget(old);
     if (old.refreshKey != widget.refreshKey) _load();
   }
+
   Future<void> _load() async {
     final list = await widget.storageService.loadActivities();
     if (mounted) setState(() { _activities = list; _loading = false; });
   }
+
   Future<void> _delete(String id) async {
     await widget.storageService.deleteActivity(id);
     await _load();
   }
+
+  Future<void> _shareActivity(ActivityModel activity) async {
+    await shareActivity(activity);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -69,12 +81,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
               activity: _activities[i],
               onTap: () => _openDetail(_activities[i]),
               onDelete: () => _delete(_activities[i].id),
+              onShare: () => _shareActivity(_activities[i]),
             ),
           ),
         )),
       ])),
     );
   }
+
   Widget _buildSummaryBar() {
     final totalKm    = _activities.fold<double>(0, (s, a) => s + a.distanceMeters / 1000);
     final totalTime  = _activities.fold<int>(0, (s, a) => s + a.durationSeconds);
@@ -82,10 +96,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.divider),
-      ),
+      decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppTheme.divider)),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
         _summaryItem('${totalKm.toStringAsFixed(1)}', 'Total km'),
         _vDiv(),
@@ -95,15 +106,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ]),
     );
   }
+
   Widget _summaryItem(String val, String label) => Column(children: [
     Text(val, style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.orange)),
     Text(label, style: GoogleFonts.dmSans(fontSize: 11, color: AppTheme.textSecondary)),
   ]);
+
   Widget _vDiv() => Container(width: 1, height: 28, color: AppTheme.divider);
+
   String _fmtHours(int s) {
     final h = s ~/ 3600; final m = (s % 3600) ~/ 60;
     return h > 0 ? '${h}h ${m}m' : '${m}m';
   }
+
   Widget _buildEmpty() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
     Container(width: 64, height: 64, decoration: BoxDecoration(color: AppTheme.cardBg, shape: BoxShape.circle, border: Border.all(color: AppTheme.divider)),
         child: Icon(Icons.directions_walk_rounded, size: 28, color: AppTheme.textMuted)),
@@ -112,6 +127,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     const SizedBox(height: 6),
     Text('Start your first walk to see it here', style: GoogleFonts.dmSans(fontSize: 13, color: AppTheme.textMuted)),
   ]));
+
   void _openDetail(ActivityModel activity) {
     Navigator.push(context, MaterialPageRoute(
       builder: (_) => ActivityDetailScreen(activity: activity, storageService: widget.storageService),

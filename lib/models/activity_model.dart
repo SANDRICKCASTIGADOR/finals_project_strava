@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:latlong2/latlong.dart';
+
 class ActivityModel {
   final String id;
   final String name;
@@ -12,6 +13,7 @@ class ActivityModel {
   final List<double> elevations;
   final String type;
   final List<String> photoPaths;
+
   ActivityModel({
     required this.id,
     required this.name,
@@ -25,17 +27,21 @@ class ActivityModel {
     this.type = 'walking',
     this.photoPaths = const [],
   });
+
   double get distanceKm => distanceMeters / 1000;
+
   double get paceMinPerKm {
     if (distanceKm <= 0) return 0;
     return (durationSeconds / 60) / distanceKm;
   }
+
   String get paceString {
     if (paceMinPerKm <= 0 || paceMinPerKm.isInfinite || paceMinPerKm.isNaN) return '--\'--"';
     final mins = paceMinPerKm.floor();
     final secs = ((paceMinPerKm - mins) * 60).round();
     return "$mins'${secs.toString().padLeft(2, '0')}\"";
   }
+
   String get durationString {
     final h = durationSeconds ~/ 3600;
     final m = (durationSeconds % 3600) ~/ 60;
@@ -43,6 +49,7 @@ class ActivityModel {
     if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
     return '${m}m ${s.toString().padLeft(2, '0')}s';
   }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -56,6 +63,7 @@ class ActivityModel {
     'type': type,
     'photoPaths': photoPaths,
   };
+
   factory ActivityModel.fromJson(Map<String, dynamic> json) => ActivityModel(
     id: json['id'],
     name: json['name'],
@@ -69,8 +77,11 @@ class ActivityModel {
     type: json['type'] ?? 'walking',
     photoPaths: (json['photoPaths'] as List?)?.map((e) => e.toString()).toList() ?? [],
   );
+
   String toJsonString() => jsonEncode(toJson());
+
   factory ActivityModel.fromJsonString(String s) => ActivityModel.fromJson(jsonDecode(s));
+
   ActivityModel copyWith({List<String>? photoPaths}) => ActivityModel(
     id: id, name: name, startTime: startTime, endTime: endTime,
     route: route, distanceMeters: distanceMeters,
