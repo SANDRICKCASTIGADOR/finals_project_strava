@@ -23,7 +23,7 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -35,7 +35,7 @@ class StatCard extends StatelessWidget {
         children: [
           Row(children: [
             if (icon != null) ...[
-              Icon(icon, size: 12, color: iconColor ?? AppTheme.textSecondary),
+              Icon(icon, size: 11, color: iconColor ?? AppTheme.textSecondary),
               const SizedBox(width: 4),
             ],
             Flexible(
@@ -51,7 +51,7 @@ class StatCard extends StatelessWidget {
               ),
             ),
           ]),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           RichText(
             overflow: TextOverflow.ellipsis,
             text: TextSpan(children: [
@@ -71,6 +71,7 @@ class StatCard extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: AppTheme.textSecondary,
+                    height: 1,
                   ),
                 ),
             ]),

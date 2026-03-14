@@ -1,26 +1,26 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/activity_model.dart';
-import '../services/storage_service.dart';
+import '../providers/storage_provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/share_helper.dart';
 import '../widgets/stat_card.dart';
 
-class ActivityDetailScreen extends StatefulWidget {
+class ActivityDetailScreen extends ConsumerStatefulWidget {
   final ActivityModel activity;
-  final StorageService storageService;
-  const ActivityDetailScreen({super.key, required this.activity, required this.storageService});
+  const ActivityDetailScreen({super.key, required this.activity});
   @override
-  State<ActivityDetailScreen> createState() => _ActivityDetailScreenState();
+  ConsumerState<ActivityDetailScreen> createState() => _ActivityDetailScreenState();
 }
 
-class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
+class _ActivityDetailScreenState extends ConsumerState<ActivityDetailScreen> {
   late ActivityModel _activity;
   final _picker = ImagePicker();
 
@@ -34,6 +34,23 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     return LatLng(lat / _activity.route.length, lng / _activity.route.length);
   }
 
+  double _calcZoom() {
+    if (_activity.route.length < 2) return 15;
+    double minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    for (final pt in _activity.route) {
+      if (pt.latitude < minLat)  minLat = pt.latitude;
+      if (pt.latitude > maxLat)  maxLat = pt.latitude;
+      if (pt.longitude < minLng) minLng = pt.longitude;
+      if (pt.longitude > maxLng) maxLng = pt.longitude;
+    }
+    final maxDiff = (maxLat - minLat) > (maxLng - minLng) ? (maxLat - minLat) : (maxLng - minLng);
+    if (maxDiff < 0.002) return 16;
+    if (maxDiff < 0.01)  return 15;
+    if (maxDiff < 0.05)  return 13;
+    if (maxDiff < 0.1)   return 12;
+    return 11;
+  }
+
   Future<void> _addPhoto(ImageSource source) async {
     final picked = await _picker.pickImage(source: source, imageQuality: 85);
     if (picked == null) return;
@@ -43,21 +60,20 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     final dest = '${photoDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
     await File(picked.path).copy(dest);
     final updated = _activity.copyWith(photoPaths: [..._activity.photoPaths, dest]);
-    await widget.storageService.updateActivity(updated);
+    await ref.read(activitiesProvider.notifier).updateActivity(updated);
     setState(() => _activity = updated);
   }
 
   Future<void> _deletePhoto(String path) async {
     final updated = _activity.copyWith(photoPaths: _activity.photoPaths.where((x) => x != path).toList());
-    await widget.storageService.updateActivity(updated);
+    await ref.read(activitiesProvider.notifier).updateActivity(updated);
     setState(() => _activity = updated);
     try { await File(path).delete(); } catch (_) {}
   }
 
   void _showPhotoOptions() {
     showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.cardBg,
+      context: context, backgroundColor: AppTheme.cardBg,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
         const SizedBox(height: 8),
@@ -70,7 +86,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     );
   }
 
-  Future<void> _shareActivity() async {
+  Future<void> _share() async {
     final photo = _activity.photoPaths.isNotEmpty ? _activity.photoPaths.first : null;
     await shareActivity(_activity, photoPath: photo);
   }
@@ -83,7 +99,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
           expandedHeight: 280, pinned: true, backgroundColor: AppTheme.darkBg,
           leading: IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.pop(context)),
           actions: [
-            IconButton(icon: const Icon(Icons.share_rounded, color: AppTheme.orange), onPressed: _shareActivity, tooltip: 'Share'),
+            IconButton(icon: const Icon(Icons.share_rounded, color: AppTheme.orange), onPressed: _share),
             const SizedBox(width: 8),
           ],
           flexibleSpace: FlexibleSpaceBar(
@@ -124,7 +140,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                 Text(DateFormat('EEEE, MMMM d, y · h:mm a').format(_activity.startTime), style: GoogleFonts.spaceGrotesk(fontSize: 13, color: AppTheme.textSecondary)),
               ])),
               GestureDetector(
-                onTap: _shareActivity,
+                onTap: _share,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(color: AppTheme.orange, borderRadius: BorderRadius.circular(12)),
@@ -153,10 +169,10 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
             ),
             const SizedBox(height: 24),
             Row(children: [
-              _legendDot(AppTheme.green), const SizedBox(width: 6),
+              _dot(AppTheme.green), const SizedBox(width: 6),
               Text('Start', style: GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary, fontSize: 13)),
               const SizedBox(width: 20),
-              _legendDot(Colors.red), const SizedBox(width: 6),
+              _dot(Colors.red), const SizedBox(width: 6),
               Text('Finish', style: GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary, fontSize: 13)),
             ]),
             const SizedBox(height: 32),
@@ -195,12 +211,22 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                 itemBuilder: (_, i) {
                   final path = _activity.photoPaths[i];
                   return GestureDetector(
-                    onTap: () => _viewPhoto(path),
-                    onLongPress: () => _confirmDelete(path),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.file(File(path), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: AppTheme.cardBg, child: const Icon(Icons.broken_image, color: AppTheme.textMuted))),
-                    ),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+                      backgroundColor: Colors.black,
+                      appBar: AppBar(backgroundColor: Colors.black, leading: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context))),
+                      body: Center(child: InteractiveViewer(child: Image.file(File(path)))),
+                    ))),
+                    onLongPress: () => showDialog(context: context, builder: (ctx) => AlertDialog(
+                      backgroundColor: AppTheme.cardBg,
+                      title: Text('Delete Photo?', style: GoogleFonts.spaceGrotesk(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary))),
+                        ElevatedButton(onPressed: () { Navigator.pop(ctx); _deletePhoto(path); }, child: const Text('Delete')),
+                      ],
+                    )),
+                    child: ClipRRect(borderRadius: BorderRadius.circular(10),
+                        child: Image.file(File(path), fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(color: AppTheme.cardBg, child: const Icon(Icons.broken_image, color: AppTheme.textMuted)))),
                   );
                 },
               ),
@@ -209,25 +235,6 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
         )),
       ]),
     );
-  }
-
-  void _viewPhoto(String path) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(backgroundColor: Colors.black, leading: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context))),
-      body: Center(child: InteractiveViewer(child: Image.file(File(path)))),
-    )));
-  }
-
-  void _confirmDelete(String path) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: AppTheme.cardBg,
-      title: Text('Delete Photo?', style: GoogleFonts.spaceGrotesk(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.spaceGrotesk(color: AppTheme.textSecondary))),
-        ElevatedButton(onPressed: () { Navigator.pop(ctx); _deletePhoto(path); }, child: const Text('Delete')),
-      ],
-    ));
   }
 
   Widget _bigStat(String value, String unit, String label) => Container(
@@ -243,22 +250,6 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     ]),
   );
 
-  Widget _legendDot(Color color) => Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)));
-
-  double _calcZoom() {
-    if (_activity.route.length < 2) return 15;
-    double minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-    for (final pt in _activity.route) {
-      if (pt.latitude < minLat) minLat = pt.latitude;
-      if (pt.latitude > maxLat) maxLat = pt.latitude;
-      if (pt.longitude < minLng) minLng = pt.longitude;
-      if (pt.longitude > maxLng) maxLng = pt.longitude;
-    }
-    final maxDiff = (maxLat - minLat) > (maxLng - minLng) ? (maxLat - minLat) : (maxLng - minLng);
-    if (maxDiff < 0.002) return 16;
-    if (maxDiff < 0.01)  return 15;
-    if (maxDiff < 0.05)  return 13;
-    if (maxDiff < 0.1)   return 12;
-    return 11;
-  }
+  Widget _dot(Color color) => Container(width: 12, height: 12,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)));
 }
