@@ -6,7 +6,6 @@ import 'package:share_plus/share_plus.dart';
 import '../models/activity_model.dart';
 import '../utils/app_theme.dart';
 
-// ── Main share function ───────────────────────────────────────────────────────
 Future<void> shareActivity(ActivityModel activity, {String? photoPath}) async {
   try {
     final recorder = ui.PictureRecorder();
@@ -27,11 +26,12 @@ Future<void> shareActivity(ActivityModel activity, {String? photoPath}) async {
       await file.writeAsBytes(bytes.buffer.asUint8List());
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: '${activity.name} — ${(activity.distanceMeters / 1000).toStringAsFixed(2)} km with StepWalking 🚶',
+        text:
+        '${activity.name} — ${(activity.distanceMeters / 1000).toStringAsFixed(2)} km with StepWalking 🚶',
       );
     }
   } catch (_) {
-    // Fallback to text share
+
     await Share.share(
       '🚶 ${activity.name}\n'
           '📍 ${(activity.distanceMeters / 1000).toStringAsFixed(2)} km\n'
@@ -43,11 +43,9 @@ Future<void> shareActivity(ActivityModel activity, {String? photoPath}) async {
   }
 }
 
-// ── Draw full share card ──────────────────────────────────────────────────────
 Future<void> _drawShareCard(
     Canvas canvas, Size size, ActivityModel activity, String? photoPath) async {
 
-  // ── Background ───────────────────────────────────────────────────────────
   if (photoPath != null) {
     try {
       final bytes = await File(photoPath).readAsBytes();
@@ -64,103 +62,136 @@ Future<void> _drawShareCard(
         fit: BoxFit.cover,
       );
     } catch (_) {
-      _drawDarkBg(canvas, size);
+      _drawPlainBg(canvas, size);
     }
   } else {
-    _drawDarkBg(canvas, size);
+    _drawPlainBg(canvas, size);
   }
 
-  // ── Right side dark overlay for text readability ──────────────────────
-  final overlayPaint = Paint()
-    ..shader = LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-      stops: const [0.25, 1.0],
+  final vignettePaint = Paint()
+    ..shader = RadialGradient(
+      center: Alignment.center,
+      radius: 1.0,
+      colors: [
+        Colors.transparent,
+        Colors.black.withOpacity(0.30),
+      ],
     ).createShader(Offset.zero & size);
-  canvas.drawRect(Offset.zero & size, overlayPaint);
+  canvas.drawRect(Offset.zero & size, vignettePaint);
 
-  // ── Bottom gradient ───────────────────────────────────────────────────
-  final bottomPaint = Paint()
-    ..shader = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-      stops: const [0.55, 1.0],
-    ).createShader(Offset.zero & size);
-  canvas.drawRect(Offset.zero & size, bottomPaint);
+  final cx = size.width / 2;
+  double y = size.height * 0.20;
+  const gap = 132.0;
 
-  // ── Mini route map (bottom left) ──────────────────────────────────────
+  _drawStatCentered(
+    canvas,
+    'Distance',
+    '${(activity.distanceMeters / 1000).toStringAsFixed(2)} km',
+    cx, y, size,
+  );
+  y += gap;
+
+  _drawStatCentered(canvas, 'Pace', '${activity.paceString} /km', cx, y, size);
+  y += gap;
+
+  _drawStatCentered(canvas, 'Time', activity.durationString, cx, y, size);
+
   if (activity.route.length > 1) {
     _drawRouteMap(canvas, activity, size);
   }
 
-  // ── Stats (right side, Strava style) ─────────────────────────────────
-  final rightX = size.width * 0.50;
-  double y = size.height * 0.28;
-  const gap = 115.0;
-
-  _drawStat(canvas, 'Distance', '${(activity.distanceMeters / 1000).toStringAsFixed(2)} km', rightX, y);
-  y += gap;
-  _drawStat(canvas, 'Pace', '${activity.paceString} /km', rightX, y);
-  y += gap;
-  _drawStat(canvas, 'Time', activity.durationString, rightX, y);
-  y += gap;
-  _drawStat(canvas, 'Steps', '${activity.steps}', rightX, y);
-
-  // ── Branding bottom right ─────────────────────────────────────────────
   _drawBranding(canvas, size);
 }
 
-// ── Draw route map ────────────────────────────────────────────────────────────
+void _drawPlainBg(Canvas canvas, Size size) {
+  final paint = Paint()
+    ..shader = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFF1C1C1C), Color(0xFF111111)],
+    ).createShader(Offset.zero & size);
+  canvas.drawRect(Offset.zero & size, paint);
+
+  canvas.drawCircle(
+    Offset(size.width * 0.5, size.height * 0.38),
+    200,
+    Paint()
+      ..color = AppTheme.orange.withOpacity(0.08)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80),
+  );
+}
+
+void _drawStatCentered(
+    Canvas canvas, String label, String value, double cx, double y, Size size) {
+
+  final labelPainter = TextPainter(
+    text: TextSpan(
+      text: label,
+      style: const TextStyle(
+        fontSize: 26,
+        color: Colors.white70,
+        fontWeight: FontWeight.w400,
+        height: 1,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  labelPainter.paint(canvas, Offset(cx - labelPainter.width / 2, y));
+
+  // Value (e.g. "6.02 km") — large, bold, pure white
+  final valuePainter = TextPainter(
+    text: TextSpan(
+      text: value,
+      style: const TextStyle(
+        fontSize: 82,
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        height: 1.05,
+        letterSpacing: -1.5,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout(maxWidth: size.width - 48);
+  valuePainter.paint(canvas, Offset(cx - valuePainter.width / 2, y + 32));
+}
+
 void _drawRouteMap(Canvas canvas, ActivityModel activity, Size size) {
-  const mapW = 260.0;
-  const mapH = 200.0;
-  const mapX = 24.0;
+  const mapW = 220.0;
+  const mapH = 170.0;
+  const mapX = 28.0;
   final mapY = size.height - mapH - 90;
   final mapRect = Rect.fromLTWH(mapX, mapY, mapW, mapH);
 
-  // Map background
-  final bgPaint = Paint()..color = const Color(0xFF1A1A1A);
-  canvas.drawRRect(RRect.fromRectAndRadius(mapRect, const Radius.circular(16)), bgPaint);
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(mapRect, const Radius.circular(14)),
+    Paint()..color = Colors.black.withOpacity(0.42),
+  );
 
-  // Map border
-  final borderPaint = Paint()
-    ..color = AppTheme.orange.withOpacity(0.4)
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.5;
-  canvas.drawRRect(RRect.fromRectAndRadius(mapRect, const Radius.circular(16)), borderPaint);
 
-  // Clip to map bounds
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(mapRect, const Radius.circular(14)),
+    Paint()
+      ..color = AppTheme.orange.withOpacity(0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5,
+  );
+
   canvas.save();
-  canvas.clipRRect(RRect.fromRectAndRadius(mapRect, const Radius.circular(16)));
+  canvas.clipRRect(RRect.fromRectAndRadius(mapRect, const Radius.circular(14)));
 
-  // Draw subtle grid
-  final gridPaint = Paint()
-    ..color = Colors.white.withOpacity(0.04)
-    ..strokeWidth = 1;
-  for (double gx = mapX; gx < mapX + mapW; gx += 30) {
-    canvas.drawLine(Offset(gx, mapY), Offset(gx, mapY + mapH), gridPaint);
-  }
-  for (double gy = mapY; gy < mapY + mapH; gy += 30) {
-    canvas.drawLine(Offset(mapX, gy), Offset(mapX + mapW, gy), gridPaint);
-  }
-
-  // Normalize route points to map bounds
   final route = activity.route;
-  double minLat = route.first.latitude,  maxLat = route.first.latitude;
+  double minLat = route.first.latitude, maxLat = route.first.latitude;
   double minLng = route.first.longitude, maxLng = route.first.longitude;
-
   for (final p in route) {
-    if (p.latitude < minLat)  minLat = p.latitude;
-    if (p.latitude > maxLat)  maxLat = p.latitude;
+    if (p.latitude < minLat) minLat = p.latitude;
+    if (p.latitude > maxLat) maxLat = p.latitude;
     if (p.longitude < minLng) minLng = p.longitude;
     if (p.longitude > maxLng) maxLng = p.longitude;
   }
 
   final latRange = (maxLat - minLat).abs();
   final lngRange = (maxLng - minLng).abs();
-  const pad = 20.0;
+  const pad = 16.0;
 
   Offset toCanvas(double lat, double lng) {
     final nx = lngRange == 0 ? 0.5 : (lng - minLng) / lngRange;
@@ -171,14 +202,6 @@ void _drawRouteMap(Canvas canvas, ActivityModel activity, Size size) {
     );
   }
 
-  // Draw route line
-  final routePaint = Paint()
-    ..color = AppTheme.orange
-    ..strokeWidth = 3
-    ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.round
-    ..strokeJoin = StrokeJoin.round;
-
   final path = Path();
   final first = toCanvas(route.first.latitude, route.first.longitude);
   path.moveTo(first.dx, first.dy);
@@ -186,82 +209,73 @@ void _drawRouteMap(Canvas canvas, ActivityModel activity, Size size) {
     final pt = toCanvas(route[i].latitude, route[i].longitude);
     path.lineTo(pt.dx, pt.dy);
   }
-  canvas.drawPath(path, routePaint);
+  canvas.drawPath(
+    path,
+    Paint()
+      ..color = AppTheme.orange
+      ..strokeWidth = 3.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round,
+  );
 
-  // Start dot (green)
   final startPt = toCanvas(route.first.latitude, route.first.longitude);
-  canvas.drawCircle(startPt, 6, Paint()..color = AppTheme.green);
-  canvas.drawCircle(startPt, 6, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
+  canvas.drawCircle(startPt, 5.5, Paint()..color = AppTheme.green);
+  canvas.drawCircle(startPt, 5.5,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5);
 
-  // End dot (red)
   final endPt = toCanvas(route.last.latitude, route.last.longitude);
-  canvas.drawCircle(endPt, 6, Paint()..color = Colors.red);
-  canvas.drawCircle(endPt, 6, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 1.5);
+  canvas.drawCircle(endPt, 5.5, Paint()..color = Colors.red);
+  canvas.drawCircle(endPt, 5.5,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5);
 
   canvas.restore();
-
-  // Map label
-  _drawText(canvas, 'Route', Offset(mapX + 10, mapY + mapH + 8), 18, Colors.white60, FontWeight.w500);
 }
 
-// ── Dark gradient background ──────────────────────────────────────────────────
-void _drawDarkBg(Canvas canvas, Size size) {
-  final paint = Paint()
-    ..shader = const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF0A0A0A), Color(0xFF141414), Color(0xFF0F0F0F)],
-    ).createShader(Offset.zero & size);
-  canvas.drawRect(Offset.zero & size, paint);
-
-  // Subtle glow
-  canvas.drawCircle(
-    Offset(size.width * 0.75, size.height * 0.25),
-    280,
-    Paint()
-      ..color = AppTheme.orange.withOpacity(0.06)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 100),
-  );
-}
-
-// ── Draw a stat block ─────────────────────────────────────────────────────────
-void _drawStat(Canvas canvas, String label, String value, double x, double y) {
-  _drawText(canvas, label, Offset(x, y), 22, Colors.white60, FontWeight.w400);
-  _drawText(canvas, value, Offset(x, y + 30), 52, Colors.white, FontWeight.w800);
-}
-
-// ── Draw branding ─────────────────────────────────────────────────────────────
 void _drawBranding(Canvas canvas, Size size) {
-  // Orange pill background
+  const pillW = 210.0;
+  const pillH = 44.0;
+  final pillX = size.width - pillW - 28;
+  final pillY = size.height - pillH - 84;
+
   final pillRect = RRect.fromRectAndRadius(
-    Rect.fromLTWH(size.width - 220, size.height - 72, 196, 48),
-    const Radius.circular(24),
+    Rect.fromLTWH(pillX, pillY, pillW, pillH),
+    const Radius.circular(22),
   );
-  canvas.drawRRect(pillRect, Paint()..color = AppTheme.orange);
 
-  // Walking icon
-  final iconPaint = Paint()
-    ..color = Colors.white
-    ..strokeWidth = 3
-    ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.round;
-  final cx = size.width - 196.0;
-  final cy = size.height - 48.0;
-  canvas.drawCircle(Offset(cx, cy - 10), 5, Paint()..color = Colors.white);
-  canvas.drawLine(Offset(cx, cy - 5), Offset(cx, cy + 6), iconPaint);
-  canvas.drawLine(Offset(cx - 7, cy - 1), Offset(cx + 7, cy - 1), iconPaint);
-  canvas.drawLine(Offset(cx, cy + 6), Offset(cx - 6, cy + 16), iconPaint);
-  canvas.drawLine(Offset(cx, cy + 6), Offset(cx + 6, cy + 16), iconPaint);
+  canvas.drawRRect(pillRect, Paint()..color = Colors.white.withOpacity(0.18));
+  canvas.drawRRect(
+    pillRect,
+    Paint()
+      ..color = Colors.white.withOpacity(0.40)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1,
+  );
 
-  // App name
-  _drawText(canvas, 'StepWalking', Offset(size.width - 178, size.height - 57), 24, Colors.white, FontWeight.w800);
-}
-
-// ── Text painter helper ───────────────────────────────────────────────────────
-void _drawText(Canvas canvas, String text, Offset offset, double size, Color color, FontWeight weight) {
   final tp = TextPainter(
-    text: TextSpan(text: text, style: TextStyle(fontSize: size, color: color, fontWeight: weight, height: 1.1)),
+    text: const TextSpan(
+      text: 'StepWalking',
+      style: TextStyle(
+        fontSize: 22,
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.3,
+      ),
+    ),
     textDirection: TextDirection.ltr,
   )..layout();
-  tp.paint(canvas, offset);
+
+  tp.paint(
+    canvas,
+    Offset(
+      pillX + (pillW - tp.width) / 2,
+      pillY + (pillH - tp.height) / 2,
+    ),
+  );
 }
